@@ -12,6 +12,7 @@ import math
 import random
 import csv
 import os
+import json
 clr.AddReference('RevitAPI')
 from Autodesk.Revit.DB import FilteredElementCollector, Transaction, XYZ
 from Autodesk.Revit.DB.Analysis import (
@@ -102,8 +103,9 @@ def extract_room_data(doc, spaces):
                             break
 
                 # Save and Print Data
-                print("  Surface ID: {:<10} | Type: {:<15} | Area: {:>6.2f} m2 | U-Value: {:>6.4f} W/m2K | U*A: {:>6.2f} W/K".format(
-                    actual_id.ToString(), surf.SurfaceType.ToString(), area, u_value, u_value * area))
+                elem_name = element.Name if element and hasattr(element, "Name") else "Unknown"
+                print("  ID: {:<8} | Name: {:<20} | Type: {:<15} | Thick.: {:>5.2f}m | Area: {:>6.2f}m2 | U-Val: {:>6.4f} | U*A: {:>6.2f}".format(
+                    actual_id.ToString(), elem_name[:20], surf.SurfaceType.ToString(), thickness, area, u_value, u_value * area))
                     
                 room_data["Sum_UA"] += (u_value * area)
                 if thickness > 0:
@@ -137,16 +139,47 @@ def run_simulation(results):
     TOTAL_MINUTES = 1440
 
     t_out_profile = []
-    base_temp = -2.0     
-    amplitude = 4.0      
-    out_noise = 0.0
+    
+    try:
+        # Fetch historical winter data for Stockholm (e.g., Jan 15, 2024)
+        url = "https://archive-api.open-meteo.com/v1/archive?latitude=59.3293&longitude=18.0686&start_date=2024-01-15&end_date=2024-01-15&hourly=temperature_2m"
+        try:
+            import urllib.request as request
+        except ImportError:
+            import urllib2 as request
+            
+        req = request.Request(url)
+        # Using context manager for urlopen is Python 3+, for Py2 we just call read
+        response = request.urlopen(req)
+        data = json.loads(response.read().decode('utf-8'))
+        hourly_temps = data['hourly']['temperature_2m']
+        
+        print("Successfully fetched Open-Meteo data for Stockholm.")
+        out_noise = 0.0
+        for m in range(TOTAL_MINUTES):
+            hour = int(m / 60)
+            next_hour = (hour + 1) if (hour + 1) < 24 else hour
+            remainder = (m % 60) / 60.0
+            
+            # Linear interpolation between hourly data points
+            interp_temp = hourly_temps[hour] + remainder * (hourly_temps[next_hour] - hourly_temps[hour])
+            
+            # Add subtle sub-hour noise
+            out_noise = 0.9 * out_noise + random.gauss(0, 0.05)
+            t_out_profile.append(interp_temp + out_noise)
+            
+    except Exception as e:
+        print("Failed to fetch Open-Meteo data ({}), using synthetic fallback...".format(e))
+        base_temp = -2.0     
+        amplitude = 4.0      
+        out_noise = 0.0
 
-    for m in range(TOTAL_MINUTES):
-        time_factor = math.sin((m - 600) * (2 * math.pi / TOTAL_MINUTES))
-        diurnal_temp = base_temp + (amplitude * time_factor)
-        out_noise = 0.9 * out_noise + random.gauss(0, 0.2)
-        noisy_temp = diurnal_temp + out_noise
-        t_out_profile.append(noisy_temp)
+        for m in range(TOTAL_MINUTES):
+            time_factor = math.sin((m - 600) * (2 * math.pi / TOTAL_MINUTES))
+            diurnal_temp = base_temp + (amplitude * time_factor)
+            out_noise = 0.9 * out_noise + random.gauss(0, 0.2)
+            noisy_temp = diurnal_temp + out_noise
+            t_out_profile.append(noisy_temp)
 
     desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "Kalman_Dataset.csv")
 
