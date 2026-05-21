@@ -146,19 +146,43 @@ def run_simulation(results):
     t_out_profile = []
     
     try:
-        # Enforce synthetic unstable weather as requested by Mustapha
-        # Vary between approx 2 to -5 degrees
-        print("Generating unstable synthetic weather (from 2C to -5C)...")
-        base_temp = -1.5     
-        amplitude = 3.5      
-        out_noise = 0.0
-
+        print("Fetching real weather data from Open-Meteo API...")
+        
+        # Handle urllib cross-compatibility for pyRevit (Py2/Py3)
+        try:
+            import urllib.request as urllib_req
+        except ImportError:
+            import urllib2 as urllib_req
+            
+        # Stockholm coordinates (latitude=59.3293, longitude=18.0686)
+        url = "https://api.open-meteo.com/v1/forecast?latitude=59.3293&longitude=18.0686&hourly=temperature_2m&forecast_days=2"
+        
+        req = urllib_req.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        response = urllib_req.urlopen(req)
+        data = json.loads(response.read().decode('utf-8'))
+        
+        # Grab first 25 hours so we can interpolate the last minute cleanly
+        hourly_temps = data['hourly']['temperature_2m'][:25] 
+        
+        if len(hourly_temps) < 24:
+            raise ValueError("Not enough hourly data returned from API")
+            
+        # Interpolate 24 hours of data into 1440 minute-by-minute readings
         for m in range(TOTAL_MINUTES):
-            time_factor = math.sin((m - 600) * (2 * math.pi / TOTAL_MINUTES))
-            diurnal_temp = base_temp + (amplitude * time_factor)
-            out_noise = 0.9 * out_noise + random.gauss(0, 0.4) # Make it less stable
-            noisy_temp = diurnal_temp + out_noise
+            hour = m // 60
+            next_hour = hour + 1
+            remainder = m % 60
+            
+            # Linear interpolation between the current hour's temp and the next hour's temp
+            t1 = hourly_temps[hour]
+            t2 = hourly_temps[next_hour]
+            interp_temp = t1 + (t2 - t1) * (remainder / 60.0)
+            
+            # Add a very slight natural noise to the outdoor temperature reading
+            noisy_temp = interp_temp + random.gauss(0, 0.1)
             t_out_profile.append(noisy_temp)
+            
+        print("SUCCESS: Loaded and interpolated Open-Meteo API data!")
             
     except Exception as e:
         print("Failed to fetch Open-Meteo data ({}), using synthetic fallback...".format(e))
@@ -173,7 +197,7 @@ def run_simulation(results):
             noisy_temp = diurnal_temp + out_noise
             t_out_profile.append(noisy_temp)
 
-    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "Kalman_Dataset.csv")
+    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop", "Kalman_Dataset_With_API.csv")
 
     with open(desktop_path, mode='w') as csv_file:
         fieldnames =['Minute', 'T_Out', 'Heater_Status', 'T_Indoor_True', 'T_Sensor_Noisy']
@@ -189,7 +213,7 @@ def run_simulation(results):
             v = r["Volume"]
             sum_ua = r["Sum_UA"]
             
-            # Thermal Capacity with ~155x multiplier (matches the approved 6M J/K)
+            # Thermal Capacity with ~155x multiplier (matches the originally approved 6M J/K)
             thermal_cap = RHO * v * CP * 154.4 
                 
             print("\nSimulating Room: {} (Volume: {:.1f}m3)".format(r["Name"], v))
@@ -236,7 +260,7 @@ def run_simulation(results):
                     hour = int(minute / 60)
                     print("  Hour {:02d}:00 | T_out = {:5.2f}C | True Indoor = {:.2f}C | Sensor = {:.2f}C".format(hour, current_t_out, t_current, t_sensor_noisy))
 
-    print("\nSUCCESS: Dataset saved to Desktop as 'Kalman_Dataset.csv'")
+    print("\nSUCCESS: Dataset saved to Desktop as 'Kalman_Dataset_With_API.csv'")
 
 # --- Main Execution ---
 doc = __revit__.ActiveUIDocument.Document

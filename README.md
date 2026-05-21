@@ -4,13 +4,20 @@ This repository contains the Python-based BIM-Sensor Fusion tool developed as a 
 
 ## How to Run the Code
 
-To execute this tool within Autodesk Revit, follow these steps:
+This pipeline runs in two distinct phases: Phase 1 isolates the geometry extraction and data generation inside Revit, while Phase 2 processes that data through the Kalman Filter to generate the final analytical dashboards.
 
+### Phase 1: Data Generation (Revit & pyRevit)
 1. **Install Prerequisites:** Ensure you have **Autodesk Revit 2026** and **pyRevit** installed on your system.
 2. **Prepare the BIM Model:** Open Revit and load a BIM model. Verify that the model contains properly defined "Rooms".
 3. **Create the Tool:** Navigate to the **pyRevit Bundles Creator** tab in the Revit ribbon and create a new **pushbutton** (you can name it anything).
 4. **Replace the Script:** Locate the newly created pushbutton folder on your PC. Replace the default generated script with our `script.py` file.
-5. **Execute:** Go back to Revit, click your newly created pushbutton to run the script on your BIM model, and it should yield the results.
+5. **Execute Extraction:** Go back to Revit, click your newly created pushbutton to run the script on your BIM model. 
+   * *Note:* This will generate the synthetic thermal dataset and export it as `Kalman_Dataset.csv` directly to your computer's Desktop by default.
+
+### Phase 2: Kalman Filtering & Visualization (Python Local Environment)
+1. **Prepare the Dataset:** Locate the `Kalman_Dataset.csv` file generated on your Desktop. You must either move this file into the same folder as `main.py`, or edit line 155 in `main.py` (`load_data('Kalman_Dataset.csv')`) to use the absolute path to your Desktop.
+2. **Run Analysis:** Execute `main.py` in your local IDE (e.g., VS Code). Ensure you have standard libraries like `matplotlib` installed.
+3. **View Results:** The script will compute the Kalman Filter state estimations, calculate sPMV comfort metrics, and automatically pop up the four-panel performance dashboard.
 
 ## 1. Workflow Architecture Diagram
 This sequence diagram illustrates the bidirectional data flow between the Revit API, the physical simulation, the synthetic noise processes, and the Kalman Filter.
@@ -36,6 +43,8 @@ sequenceDiagram
     Sensor-->>Kalman: Output Noisy Measurement (T_Sensor_Noisy)
     Kalman->>Kalman: Calculate Kalman Gain (K)
     Kalman-->>Middleware: Optimal State Estimate
+    Middleware->>Middleware: Calculate sPMV Comfort Index
+    Middleware-->>User: Present Final Dashboards
 ```
 
 ## 2. Synthetic Data Schema & Simulation Parameters
@@ -44,7 +53,7 @@ To ensure full reproducibility of the validation environment, the exact mathemat
 ### General Physical Constants
 * **Air Density (ρ):** 1.225 kg/m³
 * **Specific Heat of Air ($C_p$):** 1006 J/kgK
-* **Thermal Mass Multiplier ($\lambda$):** 500x (Simulates thermal inertia of surrounding furniture/interior walls)
+* **Thermal Mass Multiplier ($\lambda$):** 154.4x (Simulates thermal inertia of surrounding furniture/interior walls, approx. 6M J/K)
 * **Time Step (dt):** 60 seconds (1 minute)
 * **HVAC Thermostat Logic:** On at <= 20.0°C, Off at >= 22.0°C
 * **Heating Output:** 95 W/m³
@@ -68,10 +77,16 @@ Sensor anomalies are injected deterministically over specific time intervals to 
 
 * **Event 1: Sudden Heat Load (e.g., Occupancy/Close proximity to radiator)**
   * **Timing:** t=480 (08:00) to t=600 (10:00)
-  * **Peak Bias:** +4.0°C reached gradually over 60 minutes, then decaying back to zero over the subsequent 60 minutes.
+  * **Peak Bias:** +3.0°C reached gradually over 60 minutes, then decaying back to zero over the subsequent 60 minutes.
 * **Event 2: Sudden Cooling (e.g., Open window near sensor)**
-  * **Timing:** t=780 (13:00) to t=900 (15:00)
-  * **Peak Bias:** -6.0°C reached gradually over 60 minutes, then decaying back to zero over the subsequent 60 minutes.
+  * **Timing:** t=1080 (18:00) to t=1260 (21:00)
+  * **Peak Bias:** -3.0°C reached gradually over 90 minutes, then decaying back to zero over the subsequent 90 minutes.
+
+### Kalman Filter Tuning & Validation Metrics
+To ensure the filter behaves as documented relative to the building's thermal mass:
+* **Process Variance ($Q$):** 0.005
+* **Measurement Variance ($R$):** 10.0
+* **Comfort Index:** sPMV (Simplified Predicted Mean Vote) scaled linearly where 22°C = 0.
 
 
 ## Mathematical Formulation of the Average Indoor Temperature
