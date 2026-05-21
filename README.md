@@ -10,9 +10,11 @@ This pipeline runs in two distinct phases: Phase 1 isolates the geometry extract
 1. **Install Prerequisites:** Ensure you have **Autodesk Revit 2026** and **pyRevit** installed on your system.
 2. **Prepare the BIM Model:** Open Revit and load a BIM model. Verify that the model contains properly defined "Rooms".
 3. **Create the Tool:** Navigate to the **pyRevit Bundles Creator** tab in the Revit ribbon and create a new **pushbutton** (you can name it anything).
-4. **Replace the Script:** Locate the newly created pushbutton folder on your PC. Replace the default generated script with our `script.py` file.
+4. **Replace the Script:** Locate the newly created pushbutton folder on your PC. Replace the default generated script with either `script.py` or `script_with_API.py`.
+   * **`script.py` (Without API):** Uses a mathematically generated synthetic outdoor temperature profile (sinusoidal wave).
+   * **`script_with_API.py` (With API):** Fetches real historical weather data for Stockholm using the Open-Meteo API, interpolating the hourly data into minute-by-minute readings.
 5. **Execute Extraction:** Go back to Revit, click your newly created pushbutton to run the script on your BIM model. 
-   * *Note:* This will generate the synthetic thermal dataset and export it as `Kalman_Dataset.csv` directly to your computer's Desktop by default.
+   * *Note:* This will generate the thermal dataset and export it as `Kalman_Dataset.csv` (or `Kalman_Dataset_With_API.csv` if using the API script) directly to your computer's Desktop by default.
 
 ### Phase 2: Kalman Filtering & Visualization (Python Local Environment)
 1. **Prepare the Dataset:** Locate the `Kalman_Dataset.csv` file generated on your Desktop. You must either move this file into the same folder as `main.py`, or edit line 155 in `main.py` (`load_data('Kalman_Dataset.csv')`) to use the absolute path to your Desktop.
@@ -59,6 +61,8 @@ To ensure full reproducibility of the validation environment, the exact mathemat
 * **Heating Output:** 95 W/m³
 
 ### Boundary Conditions: Synthetic Weather (T_out)
+*(Note: If using `script_with_API.py`, this synthetic model is bypassed. Instead, real historical weather data for Stockholm is fetched from the Open-Meteo API.)*
+
 The external weather profile is a deterministically generated 24-hour sinusoidal wave layered with autoregressive noise.
 * **Base Temperature:** -2.0°C
 * **Diurnal Amplitude:** 4.0°C
