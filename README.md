@@ -1,5 +1,7 @@
 # Temperature Estimation - BIM-Sensor Fusion Data Generator
 
+*Note: The codebase in this repository was entirely developed through pair programming with my thesis partner, **Basoz Yar**.*
+
 This repository contains the Python-based BIM-Sensor Fusion tool developed as a technical artifact. It extracts analytical data from Autodesk Revit using the `Autodesk.Revit.DB.Analysis` namespace to execute a first-order heat balance equation. It generates synthetic, noisy sensor data designed for Kalman Filter state estimation.
 
 ## How to Run the Code
