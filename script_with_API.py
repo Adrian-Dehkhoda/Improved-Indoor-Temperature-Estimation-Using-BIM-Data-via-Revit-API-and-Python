@@ -147,8 +147,6 @@ def run_simulation(results):
     
     try:
         print("Fetching real weather data from Open-Meteo API...")
-        
-        # Handle urllib cross-compatibility for pyRevit (Py2/Py3)
         try:
             import urllib.request as urllib_req
         except ImportError:

@@ -229,10 +229,8 @@ def main():
     
     print("="*60 + "\n")
     
-    # Plot
     plot(outdoor, simulated, measured, sensor, filtered, heater)
     
-    # Zoomed Plots
     plot_zoomed(outdoor, simulated, measured, sensor, filtered, heater, 420, 660, "Zoomed: Morning Drift (8:00 - 10:00)", show_truth=False)
     plot_zoomed(outdoor, simulated, measured, sensor, filtered, heater, 780, 960, "Zoomed: Midday No Drift (13:00 - 16:00)", show_truth=False)
     plot_zoomed(outdoor, simulated, measured, sensor, filtered, heater, 1020, 1320, "Zoomed: Evening Drift (18:00 - 21:00)", show_truth=False)

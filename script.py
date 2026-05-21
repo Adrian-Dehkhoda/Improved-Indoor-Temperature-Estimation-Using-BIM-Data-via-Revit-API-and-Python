@@ -12,7 +12,6 @@ import math
 import random
 import csv
 import os
-import json
 clr.AddReference('RevitAPI')
 from Autodesk.Revit.DB import FilteredElementCollector, Transaction, XYZ
 from Autodesk.Revit.DB.Analysis import (
@@ -105,7 +104,6 @@ def extract_room_data(doc, spaces):
                             thickness = p.AsDouble() * 0.3048
                             break
 
-                # Save and Print Data
                 elem_name = element.Name if element and hasattr(element, "Name") else "Unknown"
                 print("  ID: {:<8} | Name: {:<20} | Type: {:<15} | Thick.: {:>5.2f}m | Area: {:>6.2f}m2 | U-Val: {:>6.4f} | U*A: {:>6.2f}".format(
                     actual_id.ToString(), elem_name[:20], surf.SurfaceType.ToString(), thickness, area, u_value, u_value * area))
@@ -146,8 +144,6 @@ def run_simulation(results):
     t_out_profile = []
     
     try:
-        # Enforce synthetic unstable weather as requested by Mustapha
-        # Vary between approx 2 to -5 degrees
         print("Generating unstable synthetic weather (from 2C to -5C)...")
         base_temp = -1.5     
         amplitude = 3.5      
@@ -189,7 +185,7 @@ def run_simulation(results):
             v = r["Volume"]
             sum_ua = r["Sum_UA"]
             
-            # Thermal Capacity with ~155x multiplier (matches the approved 6M J/K)
+            # Thermal Capacity with ~155x multiplier
             thermal_cap = RHO * v * CP * 154.4 
                 
             print("\nSimulating Room: {} (Volume: {:.1f}m3)".format(r["Name"], v))
@@ -238,7 +234,6 @@ def run_simulation(results):
 
     print("\nSUCCESS: Dataset saved to Desktop as 'Kalman_Dataset.csv'")
 
-# --- Main Execution ---
 doc = __revit__.ActiveUIDocument.Document
 
 options = EnergyAnalysisDetailModelOptions()
